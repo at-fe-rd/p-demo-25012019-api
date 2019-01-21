@@ -1,19 +1,31 @@
 const Character = require('../models').Character
 const asyncMiddleware = require('../helper/publicFunction')
 
+const loadSize = 10
+
 module.exports = {
   index: asyncMiddleware(async (req, res, next) =>  {
     // default limit 10 records
-    let size = +req.query.size || 10
+    let size = +req.query.size || loadSize
     let offset = +req.query.offset || 0
-    const data = await Character.findAll({
-      limit: size,
-      offset: offset,
-      order: [ ['createdAt', 'DESC'] ] 
+    data = new Promise((resolve, reject) => {
+      resolve(
+        await Character.findAll({
+          limit: size,
+          offset: offset,
+          order: [ ['createdAt', 'DESC'] ] 
+        })
+      )
     })
-    const length = await Character.count()
-    const status = offset + size < length
-    return {characters: data, loadMore: status}
+    length = new Promise((resolve, reject) => {
+      resolve(
+        await Character.count()
+      )
+    })
+    Promise.all([data, length]).then( (result) => {
+      const status = offset + size < result[1]
+      return {characters: result[0], loadMore: status}
+    });
   }),
   show: asyncMiddleware( async (req, res, next) =>  {
     return await Character.find({
